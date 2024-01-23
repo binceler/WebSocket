@@ -1,7 +1,9 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
+	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
 	"net/http"
 )
@@ -12,6 +14,13 @@ var upgrader = websocket.Upgrader{
 	},
 }
 
+type ReceivedMessage struct {
+	Action    string `json:"action"`
+	ThisAgent string `json:"thisAgent"`
+	SessionID string `json:"session_id"`
+	IsAdmin   bool   `json:"is_admin"`
+}
+
 func handleConnection(w http.ResponseWriter, r *http.Request) {
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
@@ -20,8 +29,13 @@ func handleConnection(w http.ResponseWriter, r *http.Request) {
 	}
 	defer conn.Close()
 
+	connectionID := uuid.New().String()
+
+	mapD := map[string]string{"action": "sysMsg", "content": "Welcome: " + connectionID}
+	mapB, _ := json.Marshal(mapD)
+
 	// Bağlantı açıldığında bir mesaj gönder
-	resourceID := "12345" // Burada gerçek resource ID'yi ayarlayın
+	resourceID := string(mapB) // Burada gerçek resource ID'yi ayarlayın
 	err = conn.WriteMessage(websocket.TextMessage, []byte(resourceID))
 	if err != nil {
 		fmt.Println(err)
@@ -35,7 +49,16 @@ func handleConnection(w http.ResponseWriter, r *http.Request) {
 			fmt.Println(err)
 			return
 		}
-		fmt.Printf("Received message: %s\n", p)
+		var receivedMessage ReceivedMessage
+		err = json.Unmarshal(p, &receivedMessage)
+		if receivedMessage.Action == "checkAgentOnlineList" {
+			err = conn.WriteMessage(websocket.TextMessage, []byte(p))
+		}
+
+		if err != nil {
+			fmt.Println(err)
+			return
+		}
 
 		// İsteğe bağlı olarak burada gelen mesajlara göre işlemler yapabilirsiniz
 		// Örneğin, başka bir client'a mesaj göndermek gibi
