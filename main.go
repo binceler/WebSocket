@@ -21,6 +21,8 @@ type ReceivedMessage struct {
 	IsAdmin   bool   `json:"is_admin"`
 }
 
+var onlineAgentSessions = make(map[string]string)
+
 func handleConnection(w http.ResponseWriter, r *http.Request) {
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
@@ -51,8 +53,17 @@ func handleConnection(w http.ResponseWriter, r *http.Request) {
 		}
 		var receivedMessage ReceivedMessage
 		err = json.Unmarshal(p, &receivedMessage)
+
 		if receivedMessage.Action == "checkAgentOnlineList" {
-			err = conn.WriteMessage(websocket.TextMessage, []byte(p))
+			if _, ok := onlineAgentSessions[receivedMessage.ThisAgent]; ok {
+				if onlineAgentSessions[receivedMessage.ThisAgent] != receivedMessage.SessionID {
+					messageMap, _ := json.Marshal(map[string]string{"action": "logOutAgent"})
+					message := string(messageMap)
+					err = conn.WriteMessage(websocket.TextMessage, []byte(message))
+				}
+			} else {
+				onlineAgentSessions[receivedMessage.ThisAgent] = receivedMessage.SessionID
+			}
 		}
 
 		if err != nil {
