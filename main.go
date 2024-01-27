@@ -5,7 +5,14 @@ import (
 	"fmt"
 	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
+	"gorm.io/driver/postgres"
+	"gorm.io/gorm"
+	"log"
 	"net/http"
+)
+
+var (
+	db *gorm.DB
 )
 
 var upgrader = websocket.Upgrader{
@@ -32,6 +39,9 @@ func handleConnection(w http.ResponseWriter, r *http.Request) {
 	defer conn.Close()
 
 	connectionID := uuid.New().String()
+
+	/*var result string
+	err = db.Raw("UPDATE tbl_users SET first_name='abcdefgo' where id=1").Scan(&result).Error*/
 
 	mapD := map[string]string{"action": "sysMsg", "content": "Welcome: " + connectionID}
 	mapB, _ := json.Marshal(mapD)
@@ -78,7 +88,26 @@ func handleConnection(w http.ResponseWriter, r *http.Request) {
 }
 
 func main() {
+	var err error
+	db, err = Connect()
+	if err != nil {
+		log.Fatal(err)
+	}
+
 	http.HandleFunc("/", handleConnection)
 	fmt.Println("WebSocket server started on :8080")
 	http.ListenAndServe(":8888", nil)
+}
+
+func Connect() (*gorm.DB, error) {
+	// PostgreSQL bağlantı bilgileri
+	var dsn string = "host=host.docker.internal user=busrai password=123 dbname=laravel_last port=5432"
+
+	// PostgreSQL'e bağlan
+	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{})
+	if err != nil {
+		return nil, err
+	}
+
+	return db, nil
 }
